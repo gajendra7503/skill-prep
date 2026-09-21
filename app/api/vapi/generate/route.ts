@@ -1,7 +1,6 @@
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 
-// import { createInterview } from "@/lib/db";
 import { getRandomInterviewCover } from "@/lib/utils";
 import { db } from "@/firebase/admin";
 
@@ -9,6 +8,8 @@ export async function POST(request: Request) {
   const { type, role, level, techstack, amount, userid } = await request.json();
 
   try {
+    if (!db) throw new Error("Firestore is not configured.");
+
     const { text: questions } = await generateText({
       model: google("gemini-3.6-flash"),
       prompt: `Prepare questions for a job interview.
@@ -29,24 +30,14 @@ export async function POST(request: Request) {
     const interview = {
       role, type, level,
       techstack: techstack.split(","),
-      questions: JSON.parse(questions), amount, userid,
+      questions: JSON.parse(questions),
+      userId: userid,
       finalized: true,
       coverImage: getRandomInterviewCover(),
       createdAt: new Date().toISOString()
     }
 
     await db.collection("interviews").add(interview);
-    //   {
-    //   userId: userid,
-    //   role,
-    //   type,
-    //   level,
-    //   techstack: techstack.split(","),
-    //   questions: JSON.parse(questions),
-    //   finalized: true,
-    //   coverImage: getRandomInterviewCover(),
-    //   createdAt: new Date().toISOString(),
-    // });
 
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
