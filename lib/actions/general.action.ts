@@ -4,18 +4,14 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 
 import { feedbackSchema } from "@/constants";
-import {
-  createFeedback as saveFeedback,
-  getFeedbackByInterviewId as getFeedbackByInterviewIdFromDb,
-  getInterviewById as getInterviewByIdFromDb,
-  getInterviewsByUserId as getInterviewsByUserIdFromDb,
-  getLatestInterviews as getLatestInterviewsFromDb,
-} from "@/lib/db";
+import { db } from "@/firebase/admin";
 
 export async function createFeedback(params: CreateFeedbackParams) {
   const { interviewId, userId, transcript } = params;
 
   try {
+    if (!db) throw new Error("Firestore is not configured.");
+
     const formattedTranscript = transcript
       .map(
         (sentence: { role: string; content: string }) =>
@@ -24,7 +20,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
       .join("");
 
     const { object } = await generateObject({
-      model: google("gemini-2.0-flash-001", {
+      model: google("gemini-3.6-flash", {
         structuredOutputs: false,
       }),
       schema: feedbackSchema,
@@ -44,7 +40,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
         "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
     });
 
-    const feedbackRecord = await saveFeedback({
+    const feedbackRef = await db.collection("feedback").add({
       interviewId,
       userId,
       totalScore: object.totalScore,
@@ -52,9 +48,10 @@ export async function createFeedback(params: CreateFeedbackParams) {
       strengths: object.strengths,
       areasForImprovement: object.areasForImprovement,
       finalAssessment: object.finalAssessment,
+      createdAt: new Date().toISOString(),
     });
 
-    return { success: true, feedbackId: feedbackRecord.id };
+    return { success: true, feedbackId: feedbackRef.id };
   } catch (error) {
     console.error("Error saving feedback:", error);
     return { success: false };
@@ -62,25 +59,64 @@ export async function createFeedback(params: CreateFeedbackParams) {
 }
 
 export async function getInterviewById(id: string): Promise<Interview | null> {
-  return await getInterviewByIdFromDb(id);
+  if (!db) return null;
+
+  const snapshot = await db.collection("interviews").doc(id).get();
+  if (!snapshot.exists) return null;
+
+  return { id: snapshot.id, ...snapshot.data() } as Interview;
 }
 
 export async function getFeedbackByInterviewId(
   params: GetFeedbackByInterviewIdParams
 ): Promise<Feedback | null> {
   const { interviewId, userId } = params;
-  return await getFeedbackByInterviewIdFromDb(interviewId, userId);
+  if (!db) return null;
+
+  const snapshot = await db
+    .collection("feedback")
+    .where("interviewId", "==", interviewId)
+    .where("userId", "==", userId)
+    .get();
+
+  if (snapshot.empty) return null;
+
+  const latest = snapshot.docs.sort((a, b) =>
+    b.data().createdAt.localeCompare(a.data().createdAt)
+  )[0];
+
+  return { id: latest.id, ...latest.data() } as Feedback;
 }
 
 export async function getLatestInterviews(
   params: GetLatestInterviewsParams
 ): Promise<Interview[] | null> {
   const { userId, limit = 20 } = params;
-  return await getLatestInterviewsFromDb(userId, limit);
+  if (!db) return null;
+
+  const snapshot = await db
+    .collection("interviews")
+    .where("finalized", "==", true)
+    .get();
+
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
+    .filter((interview) => interview.userId !== userId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, limit);
 }
 
 export async function getInterviewsByUserId(
   userId: string
 ): Promise<Interview[] | null> {
-  return await getInterviewsByUserIdFromDb(userId);
+  if (!db) return null;
+
+  const snapshot = await db
+    .collection("interviews")
+    .where("userId", "==", userId)
+    .get();
+
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
