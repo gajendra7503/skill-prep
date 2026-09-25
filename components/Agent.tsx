@@ -31,18 +31,20 @@ const Agent = ({
   questions,
 }: AgentProps) => {
   const router = useRouter();
-  const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
+ 
   // const [messages, setMessages] = useState<SavedMessage[]>([]);
-const messages = [
-  'Whats your name?',
-  'My name is Shubham, nice to meet you.',
-  'What is your experience with React?',
-]
+// const messages = [
+//   'Whats your name?',
+//   'My name is Shubham, nice to meet you.',
+//   'What is your experience with React?',
+// ]
 
-  const [isSpeaking, setIsSpeaking] = useState(true);
-  // const [lastMessage, setLastMessage] = useState<string>("");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
+  const [messages, setMessages] = useState<SavedMessage[]>([]);
+  const [lastMessage, setLastMessage] = useState<string>("");
 
- const lastMessage = messages[messages.length - 1];
+//  const lastMessage = messages[messages.length - 1];
 
   useEffect(() => {
     const onCallStart = () => {
@@ -53,12 +55,12 @@ const messages = [
       setCallStatus(CallStatus.FINISHED);
     };
 
-    // const onMessage = (message: Message) => {
-    //   if (message.type === "transcript" && message.transcriptType === "final") {
-    //     const newMessage = { role: message.role, content: message.transcript };
-    //     setMessages((prev) => [...prev, newMessage]);
-    //   }
-    // };
+    const onMessage = (message: Message) => {
+      if (message.type === "transcript" && message.transcriptType === "final") {
+        const newMessage = { role: message.role, content: message.transcript };
+        setMessages((prev) => [...prev, newMessage]);
+      }
+    };
 
     const onSpeechStart = () => {
       console.log("speech start");
@@ -74,26 +76,52 @@ const messages = [
       console.log("Error:", error);
     };
 
+    // Daily.co (the WebRTC layer under @vapi-ai/web) can throw a benign
+    // "Meeting has ended" error from its internal cleanup after a call ends
+    // normally. It doesn't come through vapi's "error" event, so it has to
+    // be intercepted here to avoid tripping the dev error overlay.
+    const isBenignMeetingEndedError = (reason: unknown) => {
+      const message =
+        reason instanceof Error ? reason.message : String(reason ?? "");
+      return /meeting (has )?ended/i.test(message);
+    };
+
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isBenignMeetingEndedError(event.reason)) {
+        event.preventDefault();
+      }
+    };
+
+    const onWindowError = (event: ErrorEvent) => {
+      if (isBenignMeetingEndedError(event.error ?? event.message)) {
+        event.preventDefault();
+      }
+    };
+
     vapi.on("call-start", onCallStart);
     vapi.on("call-end", onCallEnd);
-    // vapi.on("message", onMessage);
+    vapi.on("message", onMessage);
     vapi.on("speech-start", onSpeechStart);
     vapi.on("speech-end", onSpeechEnd);
     vapi.on("error", onError);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+    window.addEventListener("error", onWindowError);
 
     return () => {
       vapi.off("call-start", onCallStart);
       vapi.off("call-end", onCallEnd);
-      // vapi.off("message", onMessage);
+      vapi.off("message", onMessage);
       vapi.off("speech-start", onSpeechStart);
       vapi.off("speech-end", onSpeechEnd);
       vapi.off("error", onError);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+      window.removeEventListener("error", onWindowError);
     };
   }, []);
 
   useEffect(() => {
     if (messages.length > 0) {
-      // setLastMessage(messages[messages.length - 1].content);
+      setLastMessage(messages[messages.length - 1].content);
     }
 
     const handleGenerateFeedback = async (messages: SavedMessage[]) => {
@@ -118,7 +146,7 @@ const messages = [
       if (type === "generate") {
         router.push("/");
       } else {
-        // handleGenerateFeedback(messages);
+        handleGenerateFeedback(messages);
       }
     }
   }, [messages, callStatus, feedbackId, interviewId, router, type, userId]);
@@ -128,15 +156,15 @@ const messages = [
 
     if (type === "generate") {
       const assistantId =
-        process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID ||
+        // process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID ||
         process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID;
 
-      if (!assistantId) {
-        console.error(
-          "Missing Vapi assistant ID. Set NEXT_PUBLIC_VAPI_ASSISTANT_ID in your .env.local file."
-        );
-        return;
-      }
+      // if (!assistantId) {
+      //   console.error(
+      //     "Missing Vapi assistant ID. Set NEXT_PUBLIC_VAPI_ASSISTANT_ID in your .env.local file."
+      //   );
+      //   return;
+      // }
 
       await vapi.start(assistantId, {
         variableValues: {
@@ -144,20 +172,21 @@ const messages = [
           userid: userId,
         },
       });
-    } else {
-      let formattedQuestions = "";
-      if (questions) {
-        formattedQuestions = questions
-          .map((question) => `- ${question}`)
-          .join("\n");
-      }
+    } 
+    // else {
+    //   let formattedQuestions = "";
+    //   if (questions) {
+    //     formattedQuestions = questions
+    //       .map((question) => `- ${question}`)
+    //       .join("\n");
+    //   }
 
-      await vapi.start(interviewer, {
-        variableValues: {
-          questions: formattedQuestions,
-        },
-      });
-    }
+    //   await vapi.start(interviewer, {
+    //     variableValues: {
+    //       questions: formattedQuestions,
+    //     },
+    //   });
+    // }
   };
 
   const handleDisconnect = () => {

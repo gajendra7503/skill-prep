@@ -6,7 +6,7 @@ import InterviewCard from "@/components/InterviewCard";
 
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import {
-  getInterviewsByUserId,
+  getInterviewByUserId,
   getLatestInterviews,
 } from "@/lib/actions/general.action";
 import { dummyInterviews } from "@/constants";
@@ -14,13 +14,13 @@ import { dummyInterviews } from "@/constants";
 async function Home() {
   const user = await getCurrentUser();
 
-  const [userInterviews, allInterview] = await Promise.all([
-    getInterviewsByUserId(user?.id!),
+  const [userInterviews, LatestInterviews] = await Promise.all([
+    getInterviewByUserId(user?.id!),
     getLatestInterviews({ userId: user?.id! }),
   ]);
 
   const hasPastInterviews = userInterviews?.length! > 0;
-  const hasUpcomingInterviews = allInterview?.length! > 0;
+  const hasUpcomingInterviews = LatestInterviews?.length! > 0;
 
   return (
     <>
@@ -49,26 +49,17 @@ async function Home() {
         <h2>Your Interviews</h2>
 
         <div className="interviews-section">
-          {dummyInterviews.map((interview) => (
+          {/* {dummyInterviews.map((interview) => (
             <InterviewCard
               {...interview} key={interview.id}
             />
-          ))}
-          {/* {hasPastInterviews ? (
-            userInterviews?.map((interview) => (
-              <InterviewCard
-                key={interview.id}
-                userId={user?.id}
-                interviewId={interview.id}
-                role={interview.role}
-                type={interview.type}
-                techstack={interview.techstack}
-                createdAt={interview.createdAt}
-              />
-            ))
-          ) : (
+          ))} */}
+          {hasPastInterviews ? (
+            userInterviews?.map((interview:any) => (
+              <InterviewCard {...interview} key={interview.id} />
+            ))) : (
             <p>You haven&apos;t taken any interviews yet</p>
-          )} */}
+          )}
         </div>
       </section>
 
@@ -76,26 +67,17 @@ async function Home() {
         <h2>Take Interviews</h2>
 
         <div className="interviews-section">
-          {dummyInterviews.map((interview) => (
+          {/* {dummyInterviews.map((interview) => (
             <InterviewCard
               {...interview} key={interview.id}
             />
-          ))}
-          {/* {hasUpcomingInterviews ? (
-            allInterview?.map((interview) => (
-              <InterviewCard
-                key={interview.id}
-                userId={user?.id}
-                interviewId={interview.id}
-                role={interview.role}
-                type={interview.type}
-                techstack={interview.techstack}
-                createdAt={interview.createdAt}
-              />
-            ))
-          ) : (
-            <p>There are no interviews available</p>
-          )} */}
+          ))} */}
+         {hasUpcomingInterviews ? (
+            LatestInterviews?.map((interview:any) => (
+              <InterviewCard {...interview} key={interview.id} />
+            ))) : (
+            <p>There are no new interviews available</p>
+          )}
         </div>
       </section>
     </>

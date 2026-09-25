@@ -5,6 +5,7 @@ import { google } from "@ai-sdk/google";
 
 import { feedbackSchema } from "@/constants";
 import { db } from "@/firebase/admin";
+import { orderBy } from "firebase/firestore";
 
 export async function createFeedback(params: CreateFeedbackParams) {
   const { interviewId, userId, transcript } = params;
@@ -58,6 +59,54 @@ export async function createFeedback(params: CreateFeedbackParams) {
   }
 }
 
+export async function getInterviewByUserId(userId: string): Promise<Interview[] | null> {
+  // if (!db) return null;
+
+  const interviews = await db!
+    .collection('interviews')
+    .where('userId', '==', userId)
+    .orderBy('createdAt', 'desc')
+    .get();
+
+  return interviews.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data()
+  })) as Interview[];
+}
+
+export async function getLatestInterviews(
+  params: GetLatestInterviewsParams
+): Promise<Interview[] | null> {
+  const { userId, limit = 20 } = params;
+  // if (!db) return null;
+
+  const interviews = await db!
+    .collection('interviews')
+    .orderBy('createdAt', 'desc')
+    .where('finalized', '==', true)
+    .where('userId', '!=', userId)
+    .limit(limit)
+    .get();
+
+  return interviews.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data()
+  })) as Interview[];
+}
+// if (!db) return null;
+
+// const snapshot = await db
+//   .collection("interviews")
+//   .where("finalized", "==", true)
+//   .get();
+
+// return snapshot.docs
+//   .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
+//   .filter((interview) => interview.userId !== userId)
+//   .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+//   .slice(0, limit);
+// }
+
 export async function getInterviewById(id: string): Promise<Interview | null> {
   if (!db) return null;
 
@@ -88,35 +137,17 @@ export async function getFeedbackByInterviewId(
   return { id: latest.id, ...latest.data() } as Feedback;
 }
 
-export async function getLatestInterviews(
-  params: GetLatestInterviewsParams
-): Promise<Interview[] | null> {
-  const { userId, limit = 20 } = params;
-  if (!db) return null;
+// export async function getInterviewsByUserId(
+//   userId: string
+// ): Promise<Interview[] | null> {
+//   if (!db) return null;
 
-  const snapshot = await db
-    .collection("interviews")
-    .where("finalized", "==", true)
-    .get();
+//   const snapshot = await db
+//     .collection("interviews")
+//     .where("userId", "==", userId)
+//     .get();
 
-  return snapshot.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
-    .filter((interview) => interview.userId !== userId)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, limit);
-}
-
-export async function getInterviewsByUserId(
-  userId: string
-): Promise<Interview[] | null> {
-  if (!db) return null;
-
-  const snapshot = await db
-    .collection("interviews")
-    .where("userId", "==", userId)
-    .get();
-
-  return snapshot.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
+//   return snapshot.docs
+//     .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
+//     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+// }
