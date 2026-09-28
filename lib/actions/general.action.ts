@@ -105,38 +105,6 @@ export async function getInterviewById(id: string): Promise<Interview | null> {
 
   return interview.data() as Interview | null;
 }
-// export async function getInterviewById(id: string): Promise<Interview | null> {
-
-//   const interview = await db!
-//     .collection('interviews')
-//     .doc(id)
-//     .get();
-
-//   return interview.data() as Interview | null;
-
-// }
-// if (!db) return null;
-
-// const snapshot = await db
-//   .collection("interviews")
-//   .where("finalized", "==", true)
-//   .get();
-
-// return snapshot.docs
-//   .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
-//   .filter((interview) => interview.userId !== userId)
-//   .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-//   .slice(0, limit);
-// }
-
-// export async function getInterviewById(id: string): Promise<Interview | null> {
-//   if (!db) return null;
-
-//   const snapshot = await db.collection("interviews").doc(id).get();
-//   if (!snapshot.exists) return null;
-
-//   return { id: snapshot.id, ...snapshot.data() } as Interview;
-// }
 
 export async function getFeedbackByInterviewId(
   params: GetFeedbackByInterviewIdParams
@@ -154,24 +122,6 @@ export async function getFeedbackByInterviewId(
   if (feedback.empty) return null;
 
   const feedbackDoc = feedback.docs[0];
-  // .sort((a, b) =>
-  //   b.data().createdAt.localeCompare(a.data().createdAt)
-  // )[0];
 
   return { id: feedbackDoc.id, ...feedbackDoc.data() } as Feedback;
 }
-
-// export async function getInterviewsByUserId(
-//   userId: string
-// ): Promise<Interview[] | null> {
-//   if (!db) return null;
-
-//   const snapshot = await db
-//     .collection("interviews")
-//     .where("userId", "==", userId)
-//     .get();
-
-//   return snapshot.docs
-//     .map((doc) => ({ id: doc.id, ...doc.data() } as Interview))
-//     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-// }
