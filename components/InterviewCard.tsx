@@ -17,12 +17,12 @@ const InterviewCard = async ({
   createdAt,
 }: InterviewCardProps) => {
   const feedback =
-    // userId && interviewId
-    //   ? await getFeedbackByInterviewId({
-    //       interviewId,
-    //       userId,
-    //     })
-     null as Feedback | null;
+    userId && id
+      ? await getFeedbackByInterviewId({
+          interviewId:id,
+          userId,
+        }) : 
+     null;
 
   const normalizedType = /mix/gi.test(type) ? "Mixed" : type;
 

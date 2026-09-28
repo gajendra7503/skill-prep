@@ -6,12 +6,13 @@ import { google } from "@ai-sdk/google";
 import { feedbackSchema } from "@/constants";
 import { db } from "@/firebase/admin";
 import { orderBy } from "firebase/firestore";
+import { object } from "zod";
 
 export async function createFeedback(params: CreateFeedbackParams) {
   const { interviewId, userId, transcript } = params;
 
   try {
-    if (!db) throw new Error("Firestore is not configured.");
+    // if (!db) throw new Error("Firestore is not configured.");
 
     const formattedTranscript = transcript
       .map(
@@ -20,7 +21,7 @@ export async function createFeedback(params: CreateFeedbackParams) {
       )
       .join("");
 
-    const { object } = await generateObject({
+    const { object: { totalScore, categoryScores, strengths, areasForImprovement, finalAssessment } } = await generateObject({
       model: google("gemini-3.6-flash", {
         structuredOutputs: false,
       }),
@@ -41,14 +42,14 @@ export async function createFeedback(params: CreateFeedbackParams) {
         "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
     });
 
-    const feedbackRef = await db.collection("feedback").add({
+    const feedbackRef = await db!.collection("feedback").add({
       interviewId,
       userId,
-      totalScore: object.totalScore,
-      categoryScores: object.categoryScores,
-      strengths: object.strengths,
-      areasForImprovement: object.areasForImprovement,
-      finalAssessment: object.finalAssessment,
+      totalScore,
+      categoryScores,
+      strengths,
+      areasForImprovement,
+      finalAssessment,
       createdAt: new Date().toISOString(),
     });
 
@@ -143,19 +144,21 @@ export async function getFeedbackByInterviewId(
   const { interviewId, userId } = params;
   if (!db) return null;
 
-  const snapshot = await db
+  const feedback = await db
     .collection("feedback")
     .where("interviewId", "==", interviewId)
     .where("userId", "==", userId)
+    .limit(1)
     .get();
 
-  if (snapshot.empty) return null;
+  if (feedback.empty) return null;
 
-  const latest = snapshot.docs.sort((a, b) =>
-    b.data().createdAt.localeCompare(a.data().createdAt)
-  )[0];
+  const feedbackDoc = feedback.docs[0];
+  // .sort((a, b) =>
+  //   b.data().createdAt.localeCompare(a.data().createdAt)
+  // )[0];
 
-  return { id: latest.id, ...latest.data() } as Feedback;
+  return { id: feedbackDoc.id, ...feedbackDoc.data() } as Feedback;
 }
 
 // export async function getInterviewsByUserId(
